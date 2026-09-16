@@ -33,7 +33,10 @@ const durableObjectContainer = defineContainer({
 	schedulingPolicy: "durable-object",
 	images: {
 		primary: { dockerfile: "./Dockerfile" },
-		fallback: { reference: "registry.example.com/fallback:latest" },
+		fallback: {
+			reference:
+				"registry.cloudflare.com/account/fallback@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		},
 	},
 	observability: { enabled: true, logs: { enabled: true } },
 });

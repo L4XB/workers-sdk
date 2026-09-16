@@ -63,11 +63,13 @@ describe("resolveAndValidateConfigExports", () => {
 	});
 
 	it("parses a Durable Object Container", async ({ expect }) => {
+		const managedImage =
+			"registry.cloudflare.com/account/primary@sha256:" + "a".repeat(64);
 		const container = defineContainer({
 			name: "durable-object-container",
 			schedulingPolicy: "durable-object",
 			images: {
-				primary: { reference: "registry.example.com/primary:latest" },
+				primary: { reference: managedImage },
 			},
 		});
 

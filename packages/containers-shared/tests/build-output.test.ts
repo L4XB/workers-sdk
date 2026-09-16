@@ -35,6 +35,8 @@ const UUIDS: `${string}-${string}-${string}-${string}-${string}`[] = [
 	"22222222-2222-4222-8222-222222222222",
 ];
 const BUILD_IDS = ["111111111111", "222222222222"];
+const MANAGED_IMAGE_REFERENCE =
+	"registry.cloudflare.com/account/fallback@sha256:" + "a".repeat(64);
 
 let root: string;
 
@@ -173,7 +175,7 @@ describe("buildAndWriteContainerOutput", () => {
 			schedulingPolicy: "durable-object",
 			images: {
 				"Primary Image": { dockerfile: "./primary/Dockerfile" },
-				fallback: { reference: "registry.example.com/fallback:latest" },
+				fallback: { reference: MANAGED_IMAGE_REFERENCE },
 				worker: { dockerfile: "./worker/Dockerfile" },
 			},
 		});
@@ -228,7 +230,7 @@ describe("buildAndWriteContainerOutput", () => {
 				"Primary Image": {
 					localReference: primaryTag,
 				},
-				fallback: { reference: "registry.example.com/fallback:latest" },
+				fallback: { reference: MANAGED_IMAGE_REFERENCE },
 				worker: {
 					localReference: workerTag,
 				},

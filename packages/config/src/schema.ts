@@ -344,6 +344,15 @@ const ContainerImageReferenceSchema = z.strictObject({
 	reference: z.string().min(1),
 });
 
+const DurableObjectContainerImageReferenceSchema = z.strictObject({
+	reference: z
+		.string()
+		.regex(
+			/^(?:staging\.)?registry(?:\.fed)?\.cloudflare\.com\/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*(?:\/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)+@sha256:[a-f0-9]{64}$/,
+			'Durable Object-managed Container image references must be digest-pinned images in a Cloudflare managed registry, for example "registry.cloudflare.com/<account-id>/<repository>@sha256:<64 lowercase hex characters>"'
+		),
+});
+
 const ContainerImageLocalReferenceSchema = z.strictObject({
 	localReference: z.string().min(1),
 });
@@ -353,8 +362,18 @@ const InputContainerImageSchema = z.union([
 	ContainerImageReferenceSchema,
 ]);
 
+const InputDurableObjectContainerImageSchema = z.union([
+	ContainerImageDockerfileSchema,
+	DurableObjectContainerImageReferenceSchema,
+]);
+
 const OutputContainerImageSchema = z.union([
 	ContainerImageReferenceSchema,
+	ContainerImageLocalReferenceSchema,
+]);
+
+const OutputDurableObjectContainerImageSchema = z.union([
+	DurableObjectContainerImageReferenceSchema,
 	ContainerImageLocalReferenceSchema,
 ]);
 
@@ -525,7 +544,9 @@ export const InputContainerSchema = z.union([
 		image: InputContainerImageSchema,
 	}).superRefine(validateContainerRelationships),
 	DurableObjectContainerBaseSchema.extend({
-		images: z.record(z.string(), InputContainerImageSchema).optional(),
+		images: z
+			.record(z.string(), InputDurableObjectContainerImageSchema)
+			.optional(),
 	}),
 ]);
 
@@ -541,7 +562,9 @@ export const OutputContainerSchema = z.union([
 		image: OutputContainerImageSchema,
 	}).superRefine(validateContainerRelationships),
 	DurableObjectContainerBaseSchema.extend({
-		images: z.record(z.string(), OutputContainerImageSchema).optional(),
+		images: z
+			.record(z.string(), OutputDurableObjectContainerImageSchema)
+			.optional(),
 	}),
 ]);
 

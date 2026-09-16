@@ -128,26 +128,41 @@ type Export =
 	| WorkerEntrypointExport;
 // TODO: support Workflows
 
-/** An image source accepted in an authored Container configuration. */
+/** A Dockerfile source accepted in an authored Container configuration. */
+interface ContainerDockerfileImage {
+	/** The path to a Dockerfile. */
+	dockerfile: string;
+	/**
+	 * Build context of the application.
+	 *
+	 * @default The directory containing `dockerfile`.
+	 */
+	buildContext?: string;
+	/** Image variables available to the image at build time only. */
+	buildVars?: Record<string, string>;
+}
+
+/** An image source accepted in a standard Container configuration. */
 type ContainerImage =
-	| {
-			/** The path to a Dockerfile. */
-			dockerfile: string;
-			/**
-			 * Build context of the application.
-			 *
-			 * @default The directory containing `dockerfile`.
-			 */
-			buildContext?: string;
-			/** Image variables available to the image at build time only. */
-			buildVars?: Record<string, string>;
-	  }
+	| ContainerDockerfileImage
 	| {
 			/**
 			 * Reference to an existing image.
 			 *
 			 * For supported registries, refer to
 			 * https://developers.cloudflare.com/containers/guides/image-management/#use-pre-built-container-images
+			 */
+			reference: string;
+	  };
+
+/** An image source accepted in a Durable Object-managed Container. */
+type DurableObjectContainerImage =
+	| ContainerDockerfileImage
+	| {
+			/**
+			 * Digest-pinned image in the account's Cloudflare managed registry.
+			 *
+			 * @example "registry.cloudflare.com/<account-id>/<repository>@sha256:<digest>"
 			 */
 			reference: string;
 	  };
@@ -332,7 +347,7 @@ interface DurableObjectContainerConfig extends BaseContainerConfig {
 	 */
 	observability?: ContainerObservabilityConfig;
 	/** Named images that the Durable Object can start. */
-	images?: Record<string, ContainerImage>;
+	images?: Record<string, DurableObjectContainerImage>;
 }
 
 /**

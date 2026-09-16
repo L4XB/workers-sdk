@@ -788,17 +788,39 @@ describe("InputContainerSchema", () => {
 	});
 
 	it("accepts a Durable Object Container", ({ expect }) => {
+		const managedImage =
+			"registry.cloudflare.com/account/fallback@sha256:" + "a".repeat(64);
 		const result = InputContainerSchema.safeParse({
 			type: "container",
 			name: "durable-object-container",
 			schedulingPolicy: "durable-object",
 			images: {
 				primary: { dockerfile: "./Dockerfile" },
-				fallback: { reference: "registry.example.com/fallback:latest" },
+				fallback: { reference: managedImage },
 			},
 		});
 
 		expect(result.success).toBe(true);
+	});
+
+	it("rejects an unmanaged image reference for a Durable Object Container", ({
+		expect,
+	}) => {
+		const result = InputContainerSchema.safeParse({
+			type: "container",
+			name: "durable-object-container",
+			schedulingPolicy: "durable-object",
+			images: {
+				fallback: { reference: "registry.example.com/fallback:latest" },
+			},
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error.message).toContain(
+				"Durable Object-managed Container image references must be digest-pinned images in a Cloudflare managed registry"
+			);
+		}
 	});
 
 	it("accepts a Durable Object Container without images", ({ expect }) => {
@@ -1102,12 +1124,14 @@ describe("OutputContainerSchema", () => {
 	});
 
 	it("accepts built Durable Object Container images", ({ expect }) => {
+		const managedImage =
+			"registry.cloudflare.com/account/primary@sha256:" + "a".repeat(64);
 		const result = OutputContainerSchema.safeParse({
 			type: "container",
 			name: "durable-object-container",
 			schedulingPolicy: "durable-object",
 			images: {
-				primary: { reference: "registry.example.com/primary:digest" },
+				primary: { reference: managedImage },
 				local: { localReference: "locally-built-fallback:latest" },
 			},
 		});
