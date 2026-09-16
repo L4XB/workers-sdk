@@ -1,16 +1,13 @@
-import path from "node:path";
 import {
 	configureOpenAPIForContainerPull,
-	getDevContainerImageName,
+	isCloudflareRegistryImage,
+	resolveImageName,
 } from "@cloudflare/containers-shared";
 import {
 	COMPLIANCE_REGION_CONFIG_UNKNOWN,
 	getCloudflareApiBaseUrl,
-	isDockerfile,
-	isDurableObjectContainerApp,
-	resolveContainerClassName,
 } from "@cloudflare/workers-utils";
-import type { ResolvedWorkerConfig } from "./plugin-config";
+import type { ContainerDevOptions } from "@cloudflare/containers-shared";
 import type { ComplianceConfig } from "@cloudflare/workers-utils";
 
 /**
@@ -36,6 +33,35 @@ export function configureContainerPull(
 }
 
 /**
+ * Qualifies managed-registry image references with the selected Cloudflare
+ * account before Docker pulls them.
+ *
+ * @param containerOptions - Planned Container images.
+ * @param accountId - Cloudflare account ID that owns managed-registry images.
+ * @param complianceConfig - Compliance configuration used to select the managed registry.
+ * @returns Container options with managed-registry image references qualified.
+ */
+export function normalizeContainerImageUris(
+	containerOptions: readonly ContainerDevOptions[],
+	accountId: string,
+	complianceConfig?: ComplianceConfig
+): ContainerDevOptions[] {
+	return containerOptions.map((option) =>
+		"image_uri" in option &&
+		isCloudflareRegistryImage(option.image_uri, complianceConfig)
+			? {
+					...option,
+					image_uri: resolveImageName(
+						accountId,
+						option.image_uri,
+						complianceConfig
+					),
+				}
+			: option
+	);
+}
+
+/**
  * Returns the path to the Docker executable as defined by the
  * `WRANGLER_DOCKER_BIN` environment variable, or the default value
  * `"docker"`
@@ -47,66 +73,4 @@ export function getDockerPath(): string {
 	return process.env[dockerPathEnvVar] || defaultDockerPath;
 }
 
-/**
- * @returns Container options suitable for building or pulling images,
- * with image tag set to well-known dev format, or undefined if
- * containers are not enabled or not configured. Containers that are
- * configured but resolve to no Durable Object class are dropped, so the
- * result may also be an empty array. Both mean there is nothing to build
- * or pull, and callers treat them alike.
- */
-export function getContainerOptions(options: {
-	containersConfig: ResolvedWorkerConfig["containers"];
-	exports: ResolvedWorkerConfig["exports"];
-	containerBuildId: string;
-	configPath?: string;
-}) {
-	const { containersConfig, exports, containerBuildId, configPath } = options;
-
-	if (!containersConfig?.length) {
-		return undefined;
-	}
-
-	return containersConfig
-		.map((container) => {
-			if (
-				isDurableObjectContainerApp(container) ||
-				container.image === undefined
-			) {
-				return undefined;
-			}
-
-			// A container is linked to its Durable Object either by its own `class_name`,
-			// or by the Durable Object's `exports` entry naming it via `container`.
-			// Config validation rejects containers with neither.
-			const className = resolveContainerClassName(container, exports);
-			if (className === undefined) {
-				return undefined;
-			}
-
-			const image_tag = getDevContainerImageName(className, containerBuildId);
-
-			if (isDockerfile(container.image, configPath)) {
-				return {
-					dockerfile: container.image,
-					image_build_context:
-						container.image_build_context ?? path.dirname(container.image),
-					image_vars: container.image_vars,
-					class_name: className,
-					image_tag,
-				};
-			} else {
-				return {
-					image_uri: container.image,
-					class_name: className,
-					image_tag,
-				};
-			}
-		})
-		.filter((container) => container !== undefined);
-}
-
-export type ContainerTagToOptionsMap = Map<
-	string,
-	NonNullable<ReturnType<typeof getContainerOptions>>[number]
->;
+export type ContainerTagToOptionsMap = Map<string, ContainerDevOptions>;

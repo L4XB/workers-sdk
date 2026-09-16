@@ -1,12 +1,16 @@
 import {
 	cleanupContainers,
-	getCloudflareContainerRegistry,
+	isCloudflareRegistryImage,
 	prepareContainerImagesForDev,
 } from "@cloudflare/containers-shared";
 import { UserError } from "@cloudflare/workers-utils";
 import { buildPublicUrl, Request as MiniflareRequest } from "miniflare";
 import colors from "picocolors";
-import { configureContainerPull, getDockerPath } from "../containers";
+import {
+	configureContainerPull,
+	getDockerPath,
+	normalizeContainerImageUris,
+} from "../containers";
 import { assertIsPreview } from "../context";
 import { getPreviewMiniflareOptions } from "../miniflare-options";
 import { createPlugin, createRequestHandler } from "../utils";
@@ -68,11 +72,11 @@ export const previewPlugin = createPlugin("preview", (ctx) => {
 					)
 				);
 
-				const hasCFRegistryImages = [...containerTagToOptionsMap.values()].some(
+				let containerOptions = [...containerTagToOptionsMap.values()];
+				const hasCFRegistryImages = containerOptions.some(
 					(opts) =>
 						"image_uri" in opts &&
-						new URL(`http://${opts.image_uri}`).hostname ===
-							getCloudflareContainerRegistry(ctx.allWorkerConfigs[0])
+						isCloudflareRegistryImage(opts.image_uri, ctx.allWorkerConfigs[0])
 				);
 
 				if (hasCFRegistryImages) {
@@ -94,11 +98,16 @@ export const previewPlugin = createPlugin("preview", (ctx) => {
 					}
 
 					configureContainerPull(accountId, apiToken, ctx.allWorkerConfigs[0]);
+					containerOptions = normalizeContainerImageUris(
+						containerOptions,
+						accountId,
+						ctx.allWorkerConfigs[0]
+					);
 				}
 
 				await prepareContainerImagesForDev({
 					dockerPath: getDockerPath(),
-					containerOptions: [...containerTagToOptionsMap.values()],
+					containerOptions,
 					onContainerImagePreparationStart: () => {},
 					onContainerImagePreparationEnd: () => {},
 					logger: vitePreviewServer.config.logger,

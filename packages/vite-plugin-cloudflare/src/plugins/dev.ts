@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import {
 	cleanupContainers,
-	getCloudflareContainerRegistry,
+	isCloudflareRegistryImage,
 	prepareContainerImagesForDev,
 } from "@cloudflare/containers-shared";
 import { generateStaticRoutingRuleMatcher } from "@cloudflare/workers-shared/asset-worker/src/utils/rules-engine";
@@ -14,7 +14,11 @@ import {
 	kRequestType,
 	ROUTER_WORKER_NAME,
 } from "../constants";
-import { configureContainerPull, getDockerPath } from "../containers";
+import {
+	configureContainerPull,
+	getDockerPath,
+	normalizeContainerImageUris,
+} from "../containers";
 import { assertIsNotPreview } from "../context";
 import {
 	compareExportTypes,
@@ -243,13 +247,11 @@ export const devPlugin = createPlugin("dev", (ctx) => {
 						)
 					);
 
-					const hasCFRegistryImages = [
-						...containerTagToOptionsMap.values(),
-					].some(
+					let containerOptions = [...containerTagToOptionsMap.values()];
+					const hasCFRegistryImages = containerOptions.some(
 						(opts) =>
 							"image_uri" in opts &&
-							new URL(`http://${opts.image_uri}`).hostname ===
-								getCloudflareContainerRegistry(ctx.entryWorkerConfig)
+							isCloudflareRegistryImage(opts.image_uri, ctx.entryWorkerConfig)
 					);
 
 					if (hasCFRegistryImages) {
@@ -269,11 +271,16 @@ export const devPlugin = createPlugin("dev", (ctx) => {
 						}
 
 						configureContainerPull(accountId, apiToken, ctx.entryWorkerConfig);
+						containerOptions = normalizeContainerImageUris(
+							containerOptions,
+							accountId,
+							ctx.entryWorkerConfig
+						);
 					}
 
 					await prepareContainerImagesForDev({
 						dockerPath: getDockerPath(),
-						containerOptions: [...containerTagToOptionsMap.values()],
+						containerOptions,
 						onContainerImagePreparationStart: () => {},
 						onContainerImagePreparationEnd: () => {},
 						logger: viteDevServer.config.logger,
